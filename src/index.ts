@@ -74,7 +74,9 @@ app.delete("/users/:id", async (req, res) => {
 
 app.get("/businesses", async (req, res) => {
   try {
-    const allBusinesses = await prisma.business.findMany();
+    const allBusinesses = await prisma.business.findMany({
+      include: { Category: true, Hours: true },
+    });
     res.json({ data: allBusinesses });
   } catch (error) {
     res.status(500).json({ error: "Error fetching businesses" });
@@ -84,7 +86,10 @@ app.get("/businesses", async (req, res) => {
 app.get("/businesses/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const business = await prisma.business.findUnique({ where: { id } });
+    const business = await prisma.business.findUnique({
+      where: { id },
+      include: { Category: true, Hours: true },
+    });
     if (!business) {
       // return res.status(404).json({ error: "Business not found" });
     }
@@ -144,7 +149,9 @@ app.delete("/businesses/:id", async (req, res) => {
 
 app.get("/hours", async (req, res) => {
   try {
-    const allHours = await prisma.hours.findMany();
+    const allHours = await prisma.hours.findMany({
+      include: { business: { include: { Category: true } } },
+    });
     res.json({ data: allHours });
   } catch (error) {
     res.status(500).json({ error: "Error fetching hours" });
@@ -208,7 +215,9 @@ app.delete("/hours/:id", async (req, res) => {
 
 app.get("/categories", async (req, res) => {
   try {
-    const allCategories = await prisma.category.findMany();
+    const allCategories = await prisma.category.findMany({
+      include: { Business: { include: { Hours: true } } },
+    });
     res.json({ data: allCategories });
   } catch (error) {
     res.status(500).json({ error: "Error fetching categories" });
@@ -218,7 +227,10 @@ app.get("/categories", async (req, res) => {
 app.get("/categories/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const category = await prisma.category.findUnique({ where: { id } });
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: { Business: { include: { Hours: true } } },
+    });
     if (!category) {
       // return res.status(404).json({ error: "Category not found" });
     }

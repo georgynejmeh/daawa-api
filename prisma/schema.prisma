@@ -7,8 +7,85 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  email String
-  name  String
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
 }
+
+enum Day {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+enum DishType {
+  SWEETS
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+model User {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  name     String
+  email    String @unique
+  phone    String @unique
+  password String // hashed
+  role     Role
+}
+
+model Business {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String   @unique
+  phone       String   @unique
+  address     String
+  description String
+  image       String
+  Hours       Hours[] // Related to the Hours model
+  Category    Category @relation(fields: [categoryId], references: [id]) // Related to the Category model
+  categoryId  String   @db.ObjectId
+}
+
+model Hours {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  day        Day // Using enum for days
+  start      String
+  end        String
+  business   Business? @relation(fields: [businessId], references: [id])
+  businessId String?   @db.ObjectId
+}
+
+model Category {
+  id       String     @id @default(auto()) @map("_id") @db.ObjectId
+  name     String     @unique // Venue, Catering, Decoration, etc.
+  // info     Info // Related to the Info model (VenueInfo, CateringInfo, etc.)
+  Business Business[] // One-to-many relation with Business
+}
+
+// model VenueInfo {
+//   id           String @id @default(auto()) @map("_id") @db.ObjectId
+//   capacity     Int
+//   rooms        Int
+//   pricePerHour Float
+// }
+
+// model CateringInfo {
+//   id     String @id @default(auto()) @map("_id") @db.ObjectId
+//   dishes Dish[] // Relation to the Dish model
+// }
+
+// model Dish {
+//   id          String   @id @default(auto()) @map("_id") @db.ObjectId
+//   name        String
+//   description String
+//   type        DishType // Using enum for dish types
+//   price       Float
+//   image       String
+// }

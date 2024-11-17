@@ -81,7 +81,9 @@ app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
 /* BUSINESS CONTROLLER */
 app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const allBusinesses = yield prisma.business.findMany();
+        const allBusinesses = yield prisma.business.findMany({
+            include: { Category: true, Hours: true },
+        });
         res.json({ data: allBusinesses });
     }
     catch (error) {
@@ -91,7 +93,10 @@ app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function*
 app.get("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        const business = yield prisma.business.findUnique({ where: { id } });
+        const business = yield prisma.business.findUnique({
+            where: { id },
+            include: { Category: true, Hours: true },
+        });
         if (!business) {
             // return res.status(404).json({ error: "Business not found" });
         }
@@ -148,7 +153,9 @@ app.delete("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
 /* HOURSE CONTROLLER */
 app.get("/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const allHours = yield prisma.hours.findMany();
+        const allHours = yield prisma.hours.findMany({
+            include: { business: { include: { Category: true } } },
+        });
         res.json({ data: allHours });
     }
     catch (error) {
@@ -211,7 +218,9 @@ app.delete("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
 /* CATEGORY MODEL */
 app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const allCategories = yield prisma.category.findMany();
+        const allCategories = yield prisma.category.findMany({
+            include: { Business: { include: { Hours: true } } },
+        });
         res.json({ data: allCategories });
     }
     catch (error) {
@@ -221,7 +230,10 @@ app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function*
 app.get("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {
-        const category = yield prisma.category.findUnique({ where: { id } });
+        const category = yield prisma.category.findUnique({
+            where: { id },
+            include: { Business: { include: { Hours: true } } },
+        });
         if (!category) {
             // return res.status(404).json({ error: "Category not found" });
         }

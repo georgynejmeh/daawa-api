@@ -82,7 +82,7 @@ app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
 app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const allBusinesses = yield prisma.business.findMany({
-            include: { Category: true, Hours: true },
+            include: { category: true, hours: true },
         });
         res.json({ data: allBusinesses });
     }
@@ -95,7 +95,7 @@ app.get("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
     try {
         const business = yield prisma.business.findUnique({
             where: { id },
-            include: { Category: true, Hours: true },
+            include: { category: true, hours: true, dishes: true, attributes: true },
         });
         if (!business) {
             // return res.status(404).json({ error: "Business not found" });
@@ -154,7 +154,7 @@ app.delete("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
 app.get("/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const allHours = yield prisma.hours.findMany({
-            include: { business: { include: { Category: true } } },
+            include: { business: { include: { category: true } } },
         });
         res.json({ data: allHours });
     }
@@ -219,7 +219,7 @@ app.delete("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
 app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const allCategories = yield prisma.category.findMany({
-            include: { Business: { include: { Hours: true } } },
+            include: { businesses: { include: { hours: true } } },
         });
         res.json({ data: allCategories });
     }
@@ -232,7 +232,7 @@ app.get("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
     try {
         const category = yield prisma.category.findUnique({
             where: { id },
-            include: { Business: { include: { Hours: true } } },
+            include: { businesses: { include: { hours: true } } },
         });
         if (!category) {
             // return res.status(404).json({ error: "Category not found" });
@@ -279,5 +279,108 @@ app.delete("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
     catch (error) {
         res.status(500).json({ error: "Error deleting category" });
+    }
+}));
+/* DISH CONTROLLER */
+app.get("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const allDishes = yield prisma.dish.findMany({
+            include: { business: { include: { category: true } } },
+        });
+        res.json({ data: allDishes });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching dishes" });
+    }
+}));
+app.get("/businesses/:businessId/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessId } = req.params;
+    try {
+        const dishes = yield prisma.dish.findMany({
+            where: { businessId },
+        });
+        res.json({ data: dishes });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching dishes for business" });
+    }
+}));
+app.post("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessId, name, description, type, price, image } = req.body;
+    try {
+        const newDish = yield prisma.dish.create({
+            data: {
+                businessId,
+                name,
+                description,
+                type,
+                price,
+                image,
+            },
+        });
+        res.status(201).json({ data: newDish });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error creating dish" });
+    }
+}));
+app.delete("/dishes/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        yield prisma.dish.delete({ where: { id } });
+        res.json({ message: "dish entry deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error deleting dishes entry" });
+    }
+}));
+/* ATTRIBUTE CONTROLLER */
+app.get("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const allAttributes = yield prisma.attribute.findMany({
+            include: { business: { include: { category: true } } },
+        });
+        res.json({ data: allAttributes });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching dishes" });
+    }
+}));
+app.get("/businesses/:businessId/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessId } = req.params;
+    try {
+        const attributes = yield prisma.attribute.findMany({
+            where: { businessId },
+        });
+        res.json({ data: attributes });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching attributes for business" });
+    }
+}));
+app.post("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessId, name, value } = req.body;
+    try {
+        const newAttribute = yield prisma.attribute.create({
+            data: {
+                businessId,
+                name,
+                value,
+            },
+        });
+        res.status(201).json({ data: newAttribute });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error creating attribute" });
+    }
+}));
+app.delete("/attributes/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        yield prisma.attribute.delete({ where: { id } });
+        res.json({ message: "attribute entry deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error deleting attributes entry" });
     }
 }));

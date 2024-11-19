@@ -24,11 +24,10 @@ enum Day {
 }
 
 enum DishType {
-  SWEETS
-  BREAKFAST
-  LUNCH
-  DINNER
-  SNACK
+  MAIN
+  SIDE
+  DESSERT
+  APPETIZER
 }
 
 model User {
@@ -41,32 +40,41 @@ model User {
 }
 
 model Business {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
   name        String
-  email       String   @unique
-  phone       String   @unique
+  email       String      @unique
+  phone       String      @unique
   address     String
   description String
   image       String
-  Hours       Hours[] // Related to the Hours model
-  Category    Category @relation(fields: [categoryId], references: [id]) // Related to the Category model
-  categoryId  String   @db.ObjectId
+  hours       Hours[]
+  category    Category    @relation(fields: [categoryId], references: [id])
+  categoryId  String      @db.ObjectId
+  dishes      Dish[]
+  attributes  Attribute[]
 }
 
 model Hours {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  day        Day // Using enum for days
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  day        Day
   start      String
   end        String
-  business   Business? @relation(fields: [businessId], references: [id])
-  businessId String?   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @db.ObjectId
 }
 
 model Category {
-  id       String     @id @default(auto()) @map("_id") @db.ObjectId
-  name     String     @unique // Venue, Catering, Decoration, etc.
-  // info     Info // Related to the Info model (VenueInfo, CateringInfo, etc.)
-  Business Business[] // One-to-many relation with Business
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  name       String     @unique // Venue, Catering, Decoration, etc.
+  businesses Business[]
+}
+
+model Attribute {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  value      String
+  business   Business @relation(fields: [businessId], references: [id])
+  businessId String   @db.ObjectId
 }
 
 // model VenueInfo {
@@ -81,11 +89,13 @@ model Category {
 //   dishes Dish[] // Relation to the Dish model
 // }
 
-// model Dish {
-//   id          String   @id @default(auto()) @map("_id") @db.ObjectId
-//   name        String
-//   description String
-//   type        DishType // Using enum for dish types
-//   price       Float
-//   image       String
-// }
+model Dish {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String
+  type        DishType // MAIN, SIDE, DESSERT, APPETIZER
+  price       Float
+  image       String
+  business    Business @relation(fields: [businessId], references: [id])
+  businessId  String   @db.ObjectId
+}

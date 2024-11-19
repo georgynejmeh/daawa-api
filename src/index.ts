@@ -75,7 +75,7 @@ app.delete("/users/:id", async (req, res) => {
 app.get("/businesses", async (req, res) => {
   try {
     const allBusinesses = await prisma.business.findMany({
-      include: { Category: true, Hours: true },
+      include: { category: true, hours: true },
     });
     res.json({ data: allBusinesses });
   } catch (error) {
@@ -88,7 +88,7 @@ app.get("/businesses/:id", async (req, res) => {
   try {
     const business = await prisma.business.findUnique({
       where: { id },
-      include: { Category: true, Hours: true },
+      include: { category: true, hours: true, dishes: true, attributes: true },
     });
     if (!business) {
       // return res.status(404).json({ error: "Business not found" });
@@ -150,7 +150,7 @@ app.delete("/businesses/:id", async (req, res) => {
 app.get("/hours", async (req, res) => {
   try {
     const allHours = await prisma.hours.findMany({
-      include: { business: { include: { Category: true } } },
+      include: { business: { include: { category: true } } },
     });
     res.json({ data: allHours });
   } catch (error) {
@@ -216,7 +216,7 @@ app.delete("/hours/:id", async (req, res) => {
 app.get("/categories", async (req, res) => {
   try {
     const allCategories = await prisma.category.findMany({
-      include: { Business: { include: { Hours: true } } },
+      include: { businesses: { include: { hours: true } } },
     });
     res.json({ data: allCategories });
   } catch (error) {
@@ -229,7 +229,7 @@ app.get("/categories/:id", async (req, res) => {
   try {
     const category = await prisma.category.findUnique({
       where: { id },
-      include: { Business: { include: { Hours: true } } },
+      include: { businesses: { include: { hours: true } } },
     });
     if (!category) {
       // return res.status(404).json({ error: "Category not found" });
@@ -275,5 +275,110 @@ app.delete("/categories/:id", async (req, res) => {
     res.json({ message: "Category deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Error deleting category" });
+  }
+});
+
+/* DISH CONTROLLER */
+
+app.get("/dishes", async (req, res) => {
+  try {
+    const allDishes = await prisma.dish.findMany({
+      include: { business: { include: { category: true } } },
+    });
+    res.json({ data: allDishes });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching dishes" });
+  }
+});
+
+app.get("/businesses/:businessId/dishes", async (req, res) => {
+  const { businessId } = req.params;
+  try {
+    const dishes = await prisma.dish.findMany({
+      where: { businessId },
+    });
+    res.json({ data: dishes });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching dishes for business" });
+  }
+});
+
+app.post("/dishes", async (req, res) => {
+  const { businessId, name, description, type, price, image } = req.body;
+  try {
+    const newDish = await prisma.dish.create({
+      data: {
+        businessId,
+        name,
+        description,
+        type,
+        price,
+        image,
+      },
+    });
+    res.status(201).json({ data: newDish });
+  } catch (error) {
+    res.status(500).json({ error: "Error creating dish" });
+  }
+});
+
+app.delete("/dishes/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.dish.delete({ where: { id } });
+    res.json({ message: "dish entry deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error deleting dishes entry" });
+  }
+});
+
+/* ATTRIBUTE CONTROLLER */
+
+app.get("/attributes", async (req, res) => {
+  try {
+    const allAttributes = await prisma.attribute.findMany({
+      include: { business: { include: { category: true } } },
+    });
+    res.json({ data: allAttributes });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching dishes" });
+  }
+});
+
+app.get("/businesses/:businessId/attributes", async (req, res) => {
+  const { businessId } = req.params;
+  try {
+    const attributes = await prisma.attribute.findMany({
+      where: { businessId },
+    });
+    res.json({ data: attributes });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching attributes for business" });
+  }
+});
+
+app.post("/attributes", async (req, res) => {
+  const { businessId, name, value } = req.body;
+  try {
+    const newAttribute = await prisma.attribute.create({
+      data: {
+        businessId,
+        name,
+        value,
+      },
+    });
+    res.status(201).json({ data: newAttribute });
+  } catch (error) {
+    res.status(500).json({ error: "Error creating attribute" });
+  }
+});
+
+app.delete("/attributes/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.attribute.delete({ where: { id } });
+    res.json({ message: "attribute entry deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error deleting attributes entry" });
   }
 });

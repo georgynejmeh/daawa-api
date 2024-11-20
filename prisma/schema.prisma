@@ -40,18 +40,19 @@ model User {
 }
 
 model Business {
-  id          String      @id @default(auto()) @map("_id") @db.ObjectId
-  name        String
-  email       String      @unique
-  phone       String      @unique
-  address     String
-  description String
-  image       String
-  hours       Hours[]
-  category    Category    @relation(fields: [categoryId], references: [id])
-  categoryId  String      @db.ObjectId
-  dishes      Dish[]
-  attributes  Attribute[]
+  id                    String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name                  String
+  email                 String                  @unique
+  phone                 String                  @unique
+  address               String
+  description           String
+  image                 String
+  hours                 Hours[]
+  category              Category                @relation(fields: [categoryId], references: [id])
+  categoryId            String                  @db.ObjectId
+  dishes                Dish[]
+  attributes            Attribute[]
+  Collection_Businesses Collection_Businesses[]
 }
 
 model Hours {
@@ -98,4 +99,18 @@ model Dish {
   image       String
   business    Business @relation(fields: [businessId], references: [id])
   businessId  String   @db.ObjectId
+}
+
+model Collection {
+  id                   String                  @id @default(auto()) @map("_id") @db.ObjectId
+  name                 String
+  collectionBusinesses Collection_Businesses[]
+}
+
+model Collection_Businesses {
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  collectionId String     @db.ObjectId
+  business     Business   @relation(fields: [businessId], references: [id])
+  businessId   String     @db.ObjectId
 }

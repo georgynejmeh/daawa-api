@@ -341,7 +341,7 @@ app.get("/attributes", async (req, res) => {
     });
     res.json({ data: allAttributes });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching dishes" });
+    res.status(500).json({ error: "Error fetching attributes" });
   }
 });
 
@@ -380,5 +380,74 @@ app.delete("/attributes/:id", async (req, res) => {
     res.json({ message: "attribute entry deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Error deleting attributes entry" });
+  }
+});
+
+/* COLLECTION CONTROLLER */
+
+app.get("/collections", async (req, res) => {
+  try {
+    const allCollections = await prisma.collection.findMany({
+      include: {
+        collectionBusinesses: {
+          include: { business: { include: { category: true } } },
+        },
+      },
+    });
+    res.json({ data: allCollections });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching collections" });
+  }
+});
+
+app.get("/collections/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const collection = await prisma.collection.findMany({
+      where: { id },
+      include: {
+        collectionBusinesses: {
+          include: { business: { include: { category: true } } },
+        },
+      },
+    });
+    res.json({ data: collection });
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching collection for business" });
+  }
+});
+
+app.post("/collections", async (req, res) => {
+  const { name, businessIds }: { name: string; businessIds: string[] } =
+    req.body;
+  try {
+    if (!Array.isArray(businessIds)) {
+      // return res.status(400).json({ error: "businessIds must be an array" });
+    }
+    const newCollection = await prisma.collection.create({
+      data: {
+        name,
+        collectionBusinesses: {
+          createMany: {
+            data: businessIds.map((businessId) => ({
+              businessId,
+            })),
+          },
+        },
+      },
+    });
+    res.status(201).json({ data: newCollection });
+  } catch (error) {
+    res.status(500).json({ error: "Error creating collection" });
+  }
+});
+
+app.delete("/collections/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.collection.delete({ where: { id } });
+    res.json({ message: "collection entry deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: "Error deleting collection entry" });
   }
 });

@@ -343,7 +343,7 @@ app.get("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.json({ data: allAttributes });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching dishes" });
+        res.status(500).json({ error: "Error fetching attributes" });
     }
 }));
 app.get("/businesses/:businessId/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -382,5 +382,72 @@ app.delete("/attributes/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
     }
     catch (error) {
         res.status(500).json({ error: "Error deleting attributes entry" });
+    }
+}));
+/* COLLECTION CONTROLLER */
+app.get("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const allCollections = yield prisma.collection.findMany({
+            include: {
+                collectionBusinesses: {
+                    include: { business: { include: { category: true } } },
+                },
+            },
+        });
+        res.json({ data: allCollections });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching collections" });
+    }
+}));
+app.get("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        const collection = yield prisma.collection.findMany({
+            where: { id },
+            include: {
+                collectionBusinesses: {
+                    include: { business: { include: { category: true } } },
+                },
+            },
+        });
+        res.json({ data: collection });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error fetching collection for business" });
+    }
+}));
+app.post("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { name, businessIds } = req.body;
+    try {
+        if (!Array.isArray(businessIds)) {
+            // return res.status(400).json({ error: "businessIds must be an array" });
+        }
+        const newCollection = yield prisma.collection.create({
+            data: {
+                name,
+                collectionBusinesses: {
+                    createMany: {
+                        data: businessIds.map((businessId) => ({
+                            businessId,
+                        })),
+                    },
+                },
+            },
+        });
+        res.status(201).json({ data: newCollection });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error creating collection" });
+    }
+}));
+app.delete("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        yield prisma.collection.delete({ where: { id } });
+        res.json({ message: "collection entry deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: "Error deleting collection entry" });
     }
 }));

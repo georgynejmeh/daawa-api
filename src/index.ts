@@ -1,9 +1,23 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 
 import express from "express";
 const app = express();
 const port = 3000;
+
+// var storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, "public/uploads/");
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, Date.now() + path.extname(file.originalname)); //Appending extension
+//   },
+// });
+var storage = multer.memoryStorage();
+var upload = multer({ storage: storage });
 
 app.get("/", (req, res) => {
   res.send({ message: "Hello World!" });
@@ -16,6 +30,46 @@ app.listen(port, () => {
 const prisma = new PrismaClient();
 app.use(express.json());
 
+app.use(express.static("public"));
+
+/* TESTS */
+
+app.post("/test/imgbb", upload.single("image"), async (req, res) => {
+  try {
+    const image = req.file;
+    if (!image) {
+      return res.status(400).json({ error: "no image" });
+    }
+    const formData = new FormData();
+    // const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+    const imageBuffer = fs.readFileSync(image.path);
+    const imageBlob = new Blob([imageBuffer], { type: image.mimetype });
+    formData.append("key", process.env.IMGBB_API_KEY!);
+    formData.append("image", imageBlob, image.filename);
+    const response = await fetch(process.env.IMGBB_UPLOAD_URL!, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response) {
+      return res.status(400).json({ error: "no response from ibb" });
+    }
+    if (response.ok) {
+      return res.status(201).json({ data: await response.json() });
+    }
+    const errorData = await response.json(); // Capture the error message from the response
+    return res.status(400).json({
+      error: `ImgBB API error: ${
+        errorData.error ? errorData.error.message : "Unknown error"
+      } CODE ${response.status}`,
+    });
+    // return res.status(500).json({
+    //   error: `imageblob: ${imageBlob} CODE ${response.status} ERROR `,
+    // });
+  } catch (error) {
+    return res.status(500).json({ error: error });
+  }
+});
+
 /* USER CONTROLLER */
 
 app.get("/users", async (req, res) => {
@@ -23,7 +77,7 @@ app.get("/users", async (req, res) => {
     const allUsers = await prisma.user.findMany();
     res.json({ data: allUsers });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching users" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -56,7 +110,7 @@ app.put("/users/:id", async (req, res) => {
     });
     res.status(201).json({ data: updatedUser });
   } catch (error) {
-    res.status(500).json({ error: "Error updating user" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -66,7 +120,7 @@ app.delete("/users/:id", async (req, res) => {
     await prisma.user.delete({ where: { id } });
     res.json({ message: "User deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting user" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -79,7 +133,7 @@ app.get("/businesses", async (req, res) => {
     });
     res.json({ data: allBusinesses });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching businesses" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -91,18 +145,38 @@ app.get("/businesses/:id", async (req, res) => {
       include: { category: true, hours: true, dishes: true, attributes: true },
     });
     if (!business) {
-      // return res.status(404).json({ error: "Business not found" });
+      return res.status(404).json({ error: "Business not found" });
     }
     res.json({ data: business });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching business" });
+    res.status(500).json({ error: error });
   }
 });
 
-app.post("/businesses", async (req, res) => {
-  const { name, email, phone, address, description, image, categoryId } =
-    req.body;
+app.post("/businesses", upload.single("image"), async (req, res) => {
   try {
+    const { name, email, phone, address, description, categoryId } = req.body;
+    const image = req.file;
+
+    if (!image) {
+      return res.status(400).json({ error: "No image file uploaded" });
+    }
+
+    const formData = new FormData();
+    const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+    formData.append("key", process.env.IMGBB_API_KEY!);
+    formData.append("image", imageBlob, `${Date.now()}`);
+
+    const imgBBResponse = await fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!imgBBResponse.ok) {
+      throw new Error("Failed to upload image");
+    }
+    const jsonResponse: { data: { url: string } } = await imgBBResponse.json();
+    const imageUrl = jsonResponse.data.url;
+
     const newBusiness = await prisma.business.create({
       data: {
         name,
@@ -110,13 +184,13 @@ app.post("/businesses", async (req, res) => {
         phone,
         address,
         description,
-        image,
+        image: imageUrl,
         categoryId,
       },
     });
     res.status(201).json({ data: newBusiness });
   } catch (error) {
-    res.status(500).json({ error: "Error creating business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -131,7 +205,7 @@ app.put("/businesses/:id", async (req, res) => {
     });
     res.status(201).json({ data: updatedBusiness });
   } catch (error) {
-    res.status(500).json({ error: "Error updating business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -141,7 +215,17 @@ app.delete("/businesses/:id", async (req, res) => {
     await prisma.business.delete({ where: { id } });
     res.json({ message: "Business deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting business" });
+    res.status(500).json({ error: error });
+  }
+});
+
+app.delete("/businesses", async (req, res) => {
+  const { businessIds } = req.body;
+  try {
+    await prisma.business.deleteMany({ where: { id: { in: businessIds } } });
+    res.json({ message: "Businesses deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error });
   }
 });
 
@@ -154,7 +238,7 @@ app.get("/hours", async (req, res) => {
     });
     res.json({ data: allHours });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching hours" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -166,7 +250,7 @@ app.get("/businesses/:businessId/hours", async (req, res) => {
     });
     res.json({ data: hours });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching hours for business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -183,7 +267,7 @@ app.post("/hours", async (req, res) => {
     });
     res.status(201).json({ data: newHours });
   } catch (error) {
-    res.status(500).json({ error: "Error creating hours" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -197,7 +281,7 @@ app.put("/hours/:id", async (req, res) => {
     });
     res.status(201).json({ data: updatedHours });
   } catch (error) {
-    res.status(500).json({ error: "Error updating hours" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -207,7 +291,7 @@ app.delete("/hours/:id", async (req, res) => {
     await prisma.hours.delete({ where: { id } });
     res.json({ message: "Hours entry deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting hours entry" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -220,7 +304,7 @@ app.get("/categories", async (req, res) => {
     });
     res.json({ data: allCategories });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching categories" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -232,11 +316,11 @@ app.get("/categories/:id", async (req, res) => {
       include: { businesses: { include: { hours: true } } },
     });
     if (!category) {
-      // return res.status(404).json({ error: "Category not found" });
+      return res.status(404).json({ error: "Category not found" });
     }
     res.json({ data: category });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching category" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -250,7 +334,7 @@ app.post("/categories", async (req, res) => {
     });
     res.status(201).json({ data: newCategory });
   } catch (error) {
-    res.status(500).json({ error: "Error creating category" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -264,7 +348,7 @@ app.put("/categories/:id", async (req, res) => {
     });
     res.status(201).json({ data: updatedCategory });
   } catch (error) {
-    res.status(500).json({ error: "Error updating category" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -274,7 +358,7 @@ app.delete("/categories/:id", async (req, res) => {
     await prisma.category.delete({ where: { id } });
     res.json({ message: "Category deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting category" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -287,7 +371,7 @@ app.get("/dishes", async (req, res) => {
     });
     res.json({ data: allDishes });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching dishes" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -299,7 +383,7 @@ app.get("/businesses/:businessId/dishes", async (req, res) => {
     });
     res.json({ data: dishes });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching dishes for business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -318,7 +402,7 @@ app.post("/dishes", async (req, res) => {
     });
     res.status(201).json({ data: newDish });
   } catch (error) {
-    res.status(500).json({ error: "Error creating dish" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -328,7 +412,7 @@ app.delete("/dishes/:id", async (req, res) => {
     await prisma.dish.delete({ where: { id } });
     res.json({ message: "dish entry deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting dishes entry" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -341,7 +425,7 @@ app.get("/attributes", async (req, res) => {
     });
     res.json({ data: allAttributes });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching attributes" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -353,7 +437,7 @@ app.get("/businesses/:businessId/attributes", async (req, res) => {
     });
     res.json({ data: attributes });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching attributes for business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -369,7 +453,7 @@ app.post("/attributes", async (req, res) => {
     });
     res.status(201).json({ data: newAttribute });
   } catch (error) {
-    res.status(500).json({ error: "Error creating attribute" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -379,7 +463,7 @@ app.delete("/attributes/:id", async (req, res) => {
     await prisma.attribute.delete({ where: { id } });
     res.json({ message: "attribute entry deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting attributes entry" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -396,7 +480,7 @@ app.get("/collections", async (req, res) => {
     });
     res.json({ data: allCollections });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching collections" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -413,7 +497,7 @@ app.get("/collections/:id", async (req, res) => {
     });
     res.json({ data: collection });
   } catch (error) {
-    res.status(500).json({ error: "Error fetching collection for business" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -422,7 +506,7 @@ app.post("/collections", async (req, res) => {
     req.body;
   try {
     if (!Array.isArray(businessIds)) {
-      // return res.status(400).json({ error: "businessIds must be an array" });
+      return res.status(400).json({ error: "businessIds must be an array" });
     }
     const newCollection = await prisma.collection.create({
       data: {
@@ -438,7 +522,7 @@ app.post("/collections", async (req, res) => {
     });
     res.status(201).json({ data: newCollection });
   } catch (error) {
-    res.status(500).json({ error: "Error creating collection" });
+    res.status(500).json({ error: error });
   }
 });
 
@@ -448,6 +532,6 @@ app.delete("/collections/:id", async (req, res) => {
     await prisma.collection.delete({ where: { id } });
     res.json({ message: "collection entry deleted successfully" });
   } catch (error) {
-    res.status(500).json({ error: "Error deleting collection entry" });
+    res.status(500).json({ error: error });
   }
 });

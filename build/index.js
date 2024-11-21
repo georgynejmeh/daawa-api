@@ -14,9 +14,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const multer_1 = __importDefault(require("multer"));
+const fs_1 = __importDefault(require("fs"));
 const express_1 = __importDefault(require("express"));
 const app = (0, express_1.default)();
 const port = 3000;
+// var storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, "public/uploads/");
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, Date.now() + path.extname(file.originalname)); //Appending extension
+//   },
+// });
+var storage = multer_1.default.memoryStorage();
+var upload = (0, multer_1.default)({ storage: storage });
 app.get("/", (req, res) => {
     res.send({ message: "Hello World!" });
 });
@@ -25,6 +37,42 @@ app.listen(port, () => {
 });
 const prisma = new client_1.PrismaClient();
 app.use(express_1.default.json());
+app.use(express_1.default.static("public"));
+/* TESTS */
+app.post("/test/imgbb", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const image = req.file;
+        if (!image) {
+            return res.status(400).json({ error: "no image" });
+        }
+        const formData = new FormData();
+        // const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+        const imageBuffer = fs_1.default.readFileSync(image.path);
+        const imageBlob = new Blob([imageBuffer], { type: image.mimetype });
+        formData.append("key", process.env.IMGBB_API_KEY);
+        formData.append("image", imageBlob, image.filename);
+        const response = yield fetch(process.env.IMGBB_UPLOAD_URL, {
+            method: "POST",
+            body: formData,
+        });
+        if (!response) {
+            return res.status(400).json({ error: "no response from ibb" });
+        }
+        if (response.ok) {
+            return res.status(201).json({ data: yield response.json() });
+        }
+        const errorData = yield response.json(); // Capture the error message from the response
+        return res.status(400).json({
+            error: `ImgBB API error: ${errorData.error ? errorData.error.message : "Unknown error"} CODE ${response.status}`,
+        });
+        // return res.status(500).json({
+        //   error: `imageblob: ${imageBlob} CODE ${response.status} ERROR `,
+        // });
+    }
+    catch (error) {
+        return res.status(500).json({ error: error });
+    }
+}));
 /* USER CONTROLLER */
 app.get("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -32,7 +80,7 @@ app.get("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.json({ data: allUsers });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching users" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -65,7 +113,7 @@ app.put("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.status(201).json({ data: updatedUser });
     }
     catch (error) {
-        res.status(500).json({ error: "Error updating user" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -75,7 +123,7 @@ app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
         res.json({ message: "User deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting user" });
+        res.status(500).json({ error: error });
     }
 }));
 /* BUSINESS CONTROLLER */
@@ -87,7 +135,7 @@ app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.json({ data: allBusinesses });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching businesses" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -98,17 +146,34 @@ app.get("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
             include: { category: true, hours: true, dishes: true, attributes: true },
         });
         if (!business) {
-            // return res.status(404).json({ error: "Business not found" });
+            return res.status(404).json({ error: "Business not found" });
         }
         res.json({ data: business });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching business" });
+        res.status(500).json({ error: error });
     }
 }));
-app.post("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { name, email, phone, address, description, image, categoryId } = req.body;
+app.post("/businesses", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
+        const { name, email, phone, address, description, categoryId } = req.body;
+        const image = req.file;
+        if (!image) {
+            return res.status(400).json({ error: "No image file uploaded" });
+        }
+        const formData = new FormData();
+        const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+        formData.append("key", process.env.IMGBB_API_KEY);
+        formData.append("image", imageBlob, `${Date.now()}`);
+        const imgBBResponse = yield fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+            method: "POST",
+            body: formData,
+        });
+        if (!imgBBResponse.ok) {
+            throw new Error("Failed to upload image");
+        }
+        const jsonResponse = yield imgBBResponse.json();
+        const imageUrl = jsonResponse.data.url;
         const newBusiness = yield prisma.business.create({
             data: {
                 name,
@@ -116,14 +181,14 @@ app.post("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function
                 phone,
                 address,
                 description,
-                image,
+                image: imageUrl,
                 categoryId,
             },
         });
         res.status(201).json({ data: newBusiness });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.put("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -137,7 +202,7 @@ app.put("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
         res.status(201).json({ data: updatedBusiness });
     }
     catch (error) {
-        res.status(500).json({ error: "Error updating business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -147,7 +212,17 @@ app.delete("/businesses/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.json({ message: "Business deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting business" });
+        res.status(500).json({ error: error });
+    }
+}));
+app.delete("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessIds } = req.body;
+    try {
+        yield prisma.business.deleteMany({ where: { id: { in: businessIds } } });
+        res.json({ message: "Businesses deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
     }
 }));
 /* HOURSE CONTROLLER */
@@ -159,7 +234,7 @@ app.get("/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         res.json({ data: allHours });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching hours" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/businesses/:businessId/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -171,7 +246,7 @@ app.get("/businesses/:businessId/hours", (req, res) => __awaiter(void 0, void 0,
         res.json({ data: hours });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching hours for business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -188,7 +263,7 @@ app.post("/hours", (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         res.status(201).json({ data: newHours });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating hours" });
+        res.status(500).json({ error: error });
     }
 }));
 app.put("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -202,7 +277,7 @@ app.put("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.status(201).json({ data: updatedHours });
     }
     catch (error) {
-        res.status(500).json({ error: "Error updating hours" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -212,7 +287,7 @@ app.delete("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
         res.json({ message: "Hours entry deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting hours entry" });
+        res.status(500).json({ error: error });
     }
 }));
 /* CATEGORY MODEL */
@@ -224,7 +299,7 @@ app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.json({ data: allCategories });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching categories" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -235,12 +310,12 @@ app.get("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
             include: { businesses: { include: { hours: true } } },
         });
         if (!category) {
-            // return res.status(404).json({ error: "Category not found" });
+            return res.status(404).json({ error: "Category not found" });
         }
         res.json({ data: category });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching category" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -254,7 +329,7 @@ app.post("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function
         res.status(201).json({ data: newCategory });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating category" });
+        res.status(500).json({ error: error });
     }
 }));
 app.put("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -268,7 +343,7 @@ app.put("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, funct
         res.status(201).json({ data: updatedCategory });
     }
     catch (error) {
-        res.status(500).json({ error: "Error updating category" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -278,7 +353,7 @@ app.delete("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.json({ message: "Category deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting category" });
+        res.status(500).json({ error: error });
     }
 }));
 /* DISH CONTROLLER */
@@ -290,7 +365,7 @@ app.get("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () 
         res.json({ data: allDishes });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching dishes" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/businesses/:businessId/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -302,7 +377,7 @@ app.get("/businesses/:businessId/dishes", (req, res) => __awaiter(void 0, void 0
         res.json({ data: dishes });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching dishes for business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -321,7 +396,7 @@ app.post("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
         res.status(201).json({ data: newDish });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating dish" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/dishes/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -331,7 +406,7 @@ app.delete("/dishes/:id", (req, res) => __awaiter(void 0, void 0, void 0, functi
         res.json({ message: "dish entry deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting dishes entry" });
+        res.status(500).json({ error: error });
     }
 }));
 /* ATTRIBUTE CONTROLLER */
@@ -343,7 +418,7 @@ app.get("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function*
         res.json({ data: allAttributes });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching attributes" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/businesses/:businessId/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -355,7 +430,7 @@ app.get("/businesses/:businessId/attributes", (req, res) => __awaiter(void 0, vo
         res.json({ data: attributes });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching attributes for business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -371,7 +446,7 @@ app.post("/attributes", (req, res) => __awaiter(void 0, void 0, void 0, function
         res.status(201).json({ data: newAttribute });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating attribute" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/attributes/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -381,7 +456,7 @@ app.delete("/attributes/:id", (req, res) => __awaiter(void 0, void 0, void 0, fu
         res.json({ message: "attribute entry deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting attributes entry" });
+        res.status(500).json({ error: error });
     }
 }));
 /* COLLECTION CONTROLLER */
@@ -397,7 +472,7 @@ app.get("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function
         res.json({ data: allCollections });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching collections" });
+        res.status(500).json({ error: error });
     }
 }));
 app.get("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -414,14 +489,14 @@ app.get("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, func
         res.json({ data: collection });
     }
     catch (error) {
-        res.status(500).json({ error: "Error fetching collection for business" });
+        res.status(500).json({ error: error });
     }
 }));
 app.post("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { name, businessIds } = req.body;
     try {
         if (!Array.isArray(businessIds)) {
-            // return res.status(400).json({ error: "businessIds must be an array" });
+            return res.status(400).json({ error: "businessIds must be an array" });
         }
         const newCollection = yield prisma.collection.create({
             data: {
@@ -438,7 +513,7 @@ app.post("/collections", (req, res) => __awaiter(void 0, void 0, void 0, functio
         res.status(201).json({ data: newCollection });
     }
     catch (error) {
-        res.status(500).json({ error: "Error creating collection" });
+        res.status(500).json({ error: error });
     }
 }));
 app.delete("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -448,6 +523,6 @@ app.delete("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, f
         res.json({ message: "collection entry deleted successfully" });
     }
     catch (error) {
-        res.status(500).json({ error: "Error deleting collection entry" });
+        res.status(500).json({ error: error });
     }
 }));

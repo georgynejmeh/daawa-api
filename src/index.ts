@@ -75,9 +75,15 @@ app.post("/test/imgbb", upload.single("image"), async (req, res) => {
 /* USER CONTROLLER */
 
 app.get("/users", async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = 10;
   try {
-    const allUsers = await prisma.user.findMany();
-    res.json({ data: allUsers });
+    const allUsers = await prisma.user.findMany({
+      skip: pageSize * (page - 1),
+      take: pageSize * page,
+    });
+    const totalUsers = await prisma.user.count();
+    res.json({ total: totalUsers, pageSize: pageSize, data: allUsers });
   } catch (error) {
     res.status(500).json({ error: error });
   }

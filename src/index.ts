@@ -1,12 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import multer from "multer";
-import path from "path";
 import fs from "fs";
 
 import express from "express";
 const app = express();
 const port = 3000;
+
+import cors from "cors";
+app.use(cors());
 
 // var storage = multer.diskStorage({
 //   destination: function (req, file, cb) {

@@ -126,6 +126,16 @@ app.delete("/users/:id", async (req, res) => {
   }
 });
 
+app.delete("/users", async (req, res) => {
+  const { userIds } = req.body;
+  try {
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    res.json({ message: "Users deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
 /* BUSINESS CONTROLLER */
 
 app.get("/businesses", async (req, res) => {

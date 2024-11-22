@@ -19,6 +19,8 @@ const fs_1 = __importDefault(require("fs"));
 const express_1 = __importDefault(require("express"));
 const app = (0, express_1.default)();
 const port = 3000;
+const cors_1 = __importDefault(require("cors"));
+app.use((0, cors_1.default)());
 // var storage = multer.diskStorage({
 //   destination: function (req, file, cb) {
 //     cb(null, "public/uploads/");
@@ -121,6 +123,16 @@ app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
     try {
         yield prisma.user.delete({ where: { id } });
         res.json({ message: "User deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.delete("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { userIds } = req.body;
+    try {
+        yield prisma.user.deleteMany({ where: { id: { in: userIds } } });
+        res.json({ message: "Users deleted successfully" });
     }
     catch (error) {
         res.status(500).json({ error: error });

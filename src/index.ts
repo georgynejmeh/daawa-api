@@ -145,11 +145,20 @@ app.delete("/users", async (req, res) => {
 /* BUSINESS CONTROLLER */
 
 app.get("/businesses", async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = 10;
   try {
     const allBusinesses = await prisma.business.findMany({
+      skip: pageSize * (page - 1),
+      take: pageSize * page,
       include: { category: true, hours: true },
     });
-    res.json({ data: allBusinesses });
+    const totalBusinesses = await prisma.business.count();
+    res.json({
+      total: totalBusinesses,
+      pageSize: pageSize,
+      data: allBusinesses,
+    });
   } catch (error) {
     res.status(500).json({ error: error });
   }

@@ -146,11 +146,20 @@ app.delete("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* (
 }));
 /* BUSINESS CONTROLLER */
 app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = 10;
     try {
         const allBusinesses = yield prisma.business.findMany({
+            skip: pageSize * (page - 1),
+            take: pageSize * page,
             include: { category: true, hours: true },
         });
-        res.json({ data: allBusinesses });
+        const totalBusinesses = yield prisma.business.count();
+        res.json({
+            total: totalBusinesses,
+            pageSize: pageSize,
+            data: allBusinesses,
+        });
     }
     catch (error) {
         res.status(500).json({ error: error });

@@ -113,10 +113,11 @@ app.post("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () 
 app.put("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     const { name, email, phone, password, role } = req.body;
+    const hashedPassword = yield bcryptjs_1.default.hash(password, 10);
     try {
         const updatedUser = yield prisma.user.update({
             where: { id },
-            data: { name, email, phone, password, role },
+            data: { name, email, phone, password: hashedPassword, role },
         });
         res.status(201).json({ data: updatedUser });
     }

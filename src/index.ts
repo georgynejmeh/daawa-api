@@ -111,10 +111,11 @@ app.post("/users", async (req, res) => {
 app.put("/users/:id", async (req, res) => {
   const { id } = req.params;
   const { name, email, phone, password, role } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
   try {
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: { name, email, phone, password, role },
+      data: { name, email, phone, password: hashedPassword, role },
     });
     res.status(201).json({ data: updatedUser });
   } catch (error) {

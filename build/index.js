@@ -125,6 +125,33 @@ app.put("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* 
         res.status(500).json({ error: error });
     }
 }));
+app.patch("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    const { name, email, phone, password, role } = req.body;
+    const data = {};
+    if (name)
+        data.name = name;
+    if (email)
+        data.email = email;
+    if (phone)
+        data.phone = phone;
+    if (role)
+        data.role = role;
+    if (password) {
+        const hashedPassword = yield bcryptjs_1.default.hash(password, 10);
+        data.password = hashedPassword;
+    }
+    try {
+        const updatedUser = yield prisma.user.update({
+            where: { id: id },
+            data,
+        });
+        res.status(200).json({ data: updatedUser });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
 app.delete("/users/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
     try {

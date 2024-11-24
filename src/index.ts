@@ -123,6 +123,34 @@ app.put("/users/:id", async (req, res) => {
   }
 });
 
+app.patch("/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const { name, email, phone, password, role } = req.body;
+
+  const data: { [key: string]: any } = {};
+
+  if (name) data.name = name;
+  if (email) data.email = email;
+  if (phone) data.phone = phone;
+  if (role) data.role = role;
+
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    data.password = hashedPassword;
+  }
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: id },
+      data,
+    });
+
+    res.status(200).json({ data: updatedUser });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
 app.delete("/users/:id", async (req, res) => {
   const { id } = req.params;
   try {

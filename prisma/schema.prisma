@@ -60,7 +60,7 @@ model Hours {
   day        Day
   start      String
   end        String
-  business   Business @relation(fields: [businessId], references: [id])
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String   @db.ObjectId
 }
 
@@ -97,7 +97,7 @@ model Dish {
   type        DishType // MAIN, SIDE, DESSERT, APPETIZER
   price       Float
   image       String
-  business    Business @relation(fields: [businessId], references: [id])
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId  String   @db.ObjectId
 }
 

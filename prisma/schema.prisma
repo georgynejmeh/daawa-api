@@ -74,7 +74,7 @@ model Attribute {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   name       String
   value      String
-  business   Business @relation(fields: [businessId], references: [id])
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String   @db.ObjectId
 }
 
@@ -111,6 +111,6 @@ model Collection_Businesses {
   id           String     @id @default(auto()) @map("_id") @db.ObjectId
   collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
   collectionId String     @db.ObjectId
-  business     Business   @relation(fields: [businessId], references: [id])
+  business     Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId   String     @db.ObjectId
 }

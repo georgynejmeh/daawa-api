@@ -82,10 +82,19 @@ app.get("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const allUsers = yield prisma.user.findMany({
             skip: pageSize * (page - 1),
-            take: pageSize * page,
+            take: pageSize,
+            orderBy: {
+                id: "desc",
+            },
         });
         const totalUsers = yield prisma.user.count();
-        res.json({ total: totalUsers, pageSize: pageSize, data: allUsers });
+        res.json({
+            total: totalUsers,
+            page: page,
+            totalPages: Math.ceil(totalUsers / pageSize),
+            pageSize: pageSize,
+            data: allUsers,
+        });
     }
     catch (error) {
         res.status(500).json({ error: error });
@@ -179,12 +188,17 @@ app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function*
     try {
         const allBusinesses = yield prisma.business.findMany({
             skip: pageSize * (page - 1),
-            take: pageSize * page,
+            take: pageSize,
+            orderBy: {
+                id: "desc",
+            },
             include: { category: true, hours: true },
         });
         const totalBusinesses = yield prisma.business.count();
         res.json({
             total: totalBusinesses,
+            page: page,
+            totalPages: Math.ceil(totalBusinesses / pageSize),
             pageSize: pageSize,
             data: allBusinesses,
         });
@@ -349,9 +363,12 @@ app.delete("/hours/:id", (req, res) => __awaiter(void 0, void 0, void 0, functio
 app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const allCategories = yield prisma.category.findMany({
-            include: { businesses: { include: { hours: true } } },
+            orderBy: {
+                id: "desc",
+            },
         });
-        res.json({ data: allCategories });
+        const totalCategories = yield prisma.category.count();
+        res.json({ total: totalCategories, data: allCategories });
     }
     catch (error) {
         res.status(500).json({ error: error });
@@ -359,15 +376,35 @@ app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function*
 }));
 app.get("/categories/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { id } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const pageSize = 10;
     try {
         const category = yield prisma.category.findUnique({
             where: { id },
-            include: { businesses: { include: { hours: true } } },
+            include: {
+                businesses: {
+                    skip: pageSize * (page - 1),
+                    take: pageSize,
+                    orderBy: {
+                        id: "desc",
+                    },
+                    include: { hours: true },
+                },
+            },
         });
         if (!category) {
             return res.status(404).json({ error: "Category not found" });
         }
-        res.json({ data: category });
+        const totalBusinessesInCategory = yield prisma.business.count({
+            where: { categoryId: id },
+        });
+        res.json({
+            totalBusinessesInCategory: totalBusinessesInCategory,
+            page: page,
+            totalPages: Math.ceil(totalBusinessesInCategory / pageSize),
+            pageSize: pageSize,
+            data: category,
+        });
     }
     catch (error) {
         res.status(500).json({ error: error });
@@ -523,8 +560,12 @@ app.get("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function
                     include: { business: { include: { category: true } } },
                 },
             },
+            orderBy: {
+                id: "desc",
+            },
         });
-        res.json({ data: allCollections });
+        const totalCollections = yield prisma.collection.count();
+        res.json({ total: totalCollections, data: allCollections });
     }
     catch (error) {
         res.status(500).json({ error: error });

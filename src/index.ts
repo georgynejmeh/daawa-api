@@ -80,10 +80,19 @@ app.get("/users", async (req, res) => {
   try {
     const allUsers = await prisma.user.findMany({
       skip: pageSize * (page - 1),
-      take: pageSize * page,
+      take: pageSize,
+      orderBy: {
+        id: "desc",
+      },
     });
     const totalUsers = await prisma.user.count();
-    res.json({ total: totalUsers, pageSize: pageSize, data: allUsers });
+    res.json({
+      total: totalUsers,
+      page: page,
+      totalPages: Math.ceil(totalUsers / pageSize),
+      pageSize: pageSize,
+      data: allUsers,
+    });
   } catch (error) {
     res.status(500).json({ error: error });
   }
@@ -179,12 +188,17 @@ app.get("/businesses", async (req, res) => {
   try {
     const allBusinesses = await prisma.business.findMany({
       skip: pageSize * (page - 1),
-      take: pageSize * page,
+      take: pageSize,
+      orderBy: {
+        id: "desc",
+      },
       include: { category: true, hours: true },
     });
     const totalBusinesses = await prisma.business.count();
     res.json({
       total: totalBusinesses,
+      page: page,
+      totalPages: Math.ceil(totalBusinesses / pageSize),
       pageSize: pageSize,
       data: allBusinesses,
     });
@@ -356,9 +370,12 @@ app.delete("/hours/:id", async (req, res) => {
 app.get("/categories", async (req, res) => {
   try {
     const allCategories = await prisma.category.findMany({
-      include: { businesses: { include: { hours: true } } },
+      orderBy: {
+        id: "desc",
+      },
     });
-    res.json({ data: allCategories });
+    const totalCategories = await prisma.category.count();
+    res.json({ total: totalCategories, data: allCategories });
   } catch (error) {
     res.status(500).json({ error: error });
   }
@@ -366,15 +383,36 @@ app.get("/categories", async (req, res) => {
 
 app.get("/categories/:id", async (req, res) => {
   const { id } = req.params;
+  const page = parseInt(req.query.page as string) || 1;
+  const pageSize = 10;
   try {
     const category = await prisma.category.findUnique({
       where: { id },
-      include: { businesses: { include: { hours: true } } },
+      include: {
+        businesses: {
+          skip: pageSize * (page - 1),
+          take: pageSize,
+          orderBy: {
+            id: "desc",
+          },
+          include: { hours: true },
+        },
+      },
     });
+
     if (!category) {
       return res.status(404).json({ error: "Category not found" });
     }
-    res.json({ data: category });
+    const totalBusinessesInCategory = await prisma.business.count({
+      where: { categoryId: id },
+    });
+    res.json({
+      totalBusinessesInCategory: totalBusinessesInCategory,
+      page: page,
+      totalPages: Math.ceil(totalBusinessesInCategory / pageSize),
+      pageSize: pageSize,
+      data: category,
+    });
   } catch (error) {
     res.status(500).json({ error: error });
   }
@@ -533,8 +571,12 @@ app.get("/collections", async (req, res) => {
           include: { business: { include: { category: true } } },
         },
       },
+      orderBy: {
+        id: "desc",
+      },
     });
-    res.json({ data: allCollections });
+    const totalCollections = await prisma.collection.count();
+    res.json({ total: totalCollections, data: allCollections });
   } catch (error) {
     res.status(500).json({ error: error });
   }

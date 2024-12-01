@@ -75,10 +75,10 @@ app.post("/test/imgbb", upload.single("image"), (req, res) => __awaiter(void 0, 
         return res.status(500).json({ error: error });
     }
 }));
+const pageSize = 10;
 /* USER CONTROLLER */
 app.get("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
-    const pageSize = 10;
     try {
         const allUsers = yield prisma.user.findMany({
             skip: pageSize * (page - 1),
@@ -184,7 +184,6 @@ app.delete("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* (
 /* BUSINESS CONTROLLER */
 app.get("/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;
-    const pageSize = 10;
     try {
         const allBusinesses = yield prisma.business.findMany({
             skip: pageSize * (page - 1),
@@ -365,6 +364,30 @@ app.get("/categories", (req, res) => __awaiter(void 0, void 0, void 0, function*
         const allCategories = yield prisma.category.findMany({
             orderBy: {
                 id: "desc",
+            },
+        });
+        const totalCategories = yield prisma.category.count();
+        res.json({ total: totalCategories, data: allCategories });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.get("/categories/businesses", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const page = parseInt(req.query.page) || 1;
+    try {
+        const allCategories = yield prisma.category.findMany({
+            orderBy: {
+                name: "asc",
+            },
+            include: {
+                businesses: {
+                    skip: pageSize * (page - 1),
+                    take: pageSize,
+                    orderBy: {
+                        id: "desc",
+                    },
+                },
             },
         });
         const totalCategories = yield prisma.category.count();

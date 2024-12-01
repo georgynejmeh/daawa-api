@@ -72,11 +72,12 @@ app.post("/test/imgbb", upload.single("image"), async (req, res) => {
   }
 });
 
+const pageSize = 10;
+
 /* USER CONTROLLER */
 
 app.get("/users", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = 10;
   try {
     const allUsers = await prisma.user.findMany({
       skip: pageSize * (page - 1),
@@ -184,7 +185,6 @@ app.delete("/users", async (req, res) => {
 
 app.get("/businesses", async (req, res) => {
   const page = parseInt(req.query.page as string) || 1;
-  const pageSize = 10;
   try {
     const allBusinesses = await prisma.business.findMany({
       skip: pageSize * (page - 1),
@@ -372,6 +372,30 @@ app.get("/categories", async (req, res) => {
     const allCategories = await prisma.category.findMany({
       orderBy: {
         id: "desc",
+      },
+    });
+    const totalCategories = await prisma.category.count();
+    res.json({ total: totalCategories, data: allCategories });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
+app.get("/categories/businesses", async (req, res) => {
+  const page = parseInt(req.query.page as string) || 1;
+  try {
+    const allCategories = await prisma.category.findMany({
+      orderBy: {
+        name: "asc",
+      },
+      include: {
+        businesses: {
+          skip: pageSize * (page - 1),
+          take: pageSize,
+          orderBy: {
+            id: "desc",
+          },
+        },
       },
     });
     const totalCategories = await prisma.category.count();

@@ -299,6 +299,62 @@ app.delete("/businesses", async (req, res) => {
   }
 });
 
+app.patch("/businesses/:id", upload.single("image"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, address, description, categoryId } = req.body;
+    const image = req.file;
+
+    const updateData: any = {};
+
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (phone) updateData.phone = phone;
+    if (address) updateData.address = address;
+    if (description) updateData.description = description;
+    if (categoryId) updateData.categoryId = categoryId;
+
+    if (image) {
+      const formData = new FormData();
+      const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+      formData.append("key", process.env.IMGBB_API_KEY!);
+      formData.append("image", imageBlob, `${Date.now()}`);
+
+      const imgBBResponse = await fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!imgBBResponse.ok) {
+        throw new Error("Failed to upload image");
+      }
+
+      const jsonResponse: { data: { url: string } } =
+        await imgBBResponse.json();
+      const imageUrl = jsonResponse.data.url;
+      updateData.image = imageUrl;
+    }
+
+    const existingBusiness = await prisma.business.findUnique({
+      where: { id: id },
+    });
+
+    if (!existingBusiness) {
+      return res.status(404).json({ error: "Business not found" });
+    }
+
+    // Perform the update
+    const updatedBusiness = await prisma.business.update({
+      where: { id: id },
+      data: updateData,
+    });
+
+    res.status(200).json({ data: updatedBusiness });
+  } catch (error) {
+    res.status(500).json({ error: error || "Internal server error" });
+  }
+});
+
 /* HOURSE CONTROLLER */
 
 app.get("/hours", async (req, res) => {

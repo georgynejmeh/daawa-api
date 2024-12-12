@@ -235,7 +235,8 @@ app.post("/businesses", upload.single("image"), async (req, res) => {
     const formData = new FormData();
     const imageBlob = new Blob([image.buffer], { type: image.mimetype });
     formData.append("key", process.env.IMGBB_API_KEY!);
-    formData.append("image", imageBlob, `${Date.now()}`);
+    formData.append("image", imageBlob);
+    formData.append("name", `${Date.now()}`);
 
     const imgBBResponse = await fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
       method: "POST",

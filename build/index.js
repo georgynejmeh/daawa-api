@@ -574,7 +574,7 @@ app.post("/dishes", upload.single("image"), (req, res) => __awaiter(void 0, void
                 name,
                 description,
                 type,
-                price,
+                price: Number(price),
                 image: imageUrl,
             },
         });

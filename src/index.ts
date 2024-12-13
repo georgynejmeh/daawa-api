@@ -592,7 +592,7 @@ app.post("/dishes", upload.single("image"), async (req, res) => {
         name,
         description,
         type,
-        price,
+        price: Number(price),
         image: imageUrl,
       },
     });

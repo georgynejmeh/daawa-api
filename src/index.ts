@@ -562,8 +562,29 @@ app.get("/businesses/:businessId/dishes", async (req, res) => {
   }
 });
 
-app.post("/dishes", async (req, res) => {
-  const { businessId, name, description, type, price, image } = req.body;
+app.post("/dishes", upload.single("image"), async (req, res) => {
+  const { businessId, name, description, type, price } = req.body;
+  const image = req.file;
+
+  if (!image) {
+    return res.status(400).json({ error: "No image file uploaded" });
+  }
+
+  const formData = new FormData();
+  const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+  formData.append("key", process.env.IMGBB_API_KEY!);
+  formData.append("image", imageBlob);
+  formData.append("name", `${Date.now()}`);
+
+  const imgBBResponse = await fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!imgBBResponse.ok) {
+    throw new Error("Failed to upload image");
+  }
+  const jsonResponse: { data: { url: string } } = await imgBBResponse.json();
+  const imageUrl = jsonResponse.data.url;
   try {
     const newDish = await prisma.dish.create({
       data: {
@@ -572,7 +593,7 @@ app.post("/dishes", async (req, res) => {
         description,
         type,
         price,
-        image,
+        image: imageUrl,
       },
     });
     res.status(201).json({ data: newDish });

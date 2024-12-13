@@ -547,8 +547,26 @@ app.get("/businesses/:businessId/dishes", (req, res) => __awaiter(void 0, void 0
         res.status(500).json({ error: error });
     }
 }));
-app.post("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { businessId, name, description, type, price, image } = req.body;
+app.post("/dishes", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { businessId, name, description, type, price } = req.body;
+    const image = req.file;
+    if (!image) {
+        return res.status(400).json({ error: "No image file uploaded" });
+    }
+    const formData = new FormData();
+    const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+    formData.append("key", process.env.IMGBB_API_KEY);
+    formData.append("image", imageBlob);
+    formData.append("name", `${Date.now()}`);
+    const imgBBResponse = yield fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+        method: "POST",
+        body: formData,
+    });
+    if (!imgBBResponse.ok) {
+        throw new Error("Failed to upload image");
+    }
+    const jsonResponse = yield imgBBResponse.json();
+    const imageUrl = jsonResponse.data.url;
     try {
         const newDish = yield prisma.dish.create({
             data: {
@@ -557,7 +575,7 @@ app.post("/dishes", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                 description,
                 type,
                 price,
-                image,
+                image: imageUrl,
             },
         });
         res.status(201).json({ data: newDish });

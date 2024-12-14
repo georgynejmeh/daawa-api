@@ -76,6 +76,32 @@ app.post("/test/imgbb", upload.single("image"), (req, res) => __awaiter(void 0, 
     }
 }));
 const pageSize = 10;
+app.get("/statistics", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const userCount = yield prisma.user.count();
+        const businessCount = yield prisma.business.count();
+        const categoryCount = yield prisma.category.count();
+        const collectionCount = yield prisma.collection.count();
+        const dishCount = yield prisma.dish.count();
+        const hoursCount = yield prisma.hours.count();
+        const statistics = {
+            count: {
+                users: userCount,
+                businesses: businessCount,
+                categories: categoryCount,
+                collections: collectionCount,
+                dishes: dishCount,
+                hours: hoursCount,
+            },
+        };
+        res.json({
+            data: statistics,
+        });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
 /* USER CONTROLLER */
 app.get("/users", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const page = parseInt(req.query.page) || 1;

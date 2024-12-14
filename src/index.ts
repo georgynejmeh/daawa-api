@@ -74,6 +74,34 @@ app.post("/test/imgbb", upload.single("image"), async (req, res) => {
 
 const pageSize = 10;
 
+app.get("/statistics", async (req, res) => {
+  try {
+    const userCount = await prisma.user.count();
+    const businessCount = await prisma.business.count();
+    const categoryCount = await prisma.category.count();
+    const collectionCount = await prisma.collection.count();
+    const dishCount = await prisma.dish.count();
+    const hoursCount = await prisma.hours.count();
+
+    const statistics = {
+      count: {
+        users: userCount,
+        businesses: businessCount,
+        categories: categoryCount,
+        collections: collectionCount,
+        dishes: dishCount,
+        hours: hoursCount,
+      },
+    };
+
+    res.json({
+      data: statistics,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
 /* USER CONTROLLER */
 
 app.get("/users", async (req, res) => {

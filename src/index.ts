@@ -61,7 +61,7 @@ app.post("/test/imgbb", upload.single("image"), async (req, res) => {
     const errorData = await response.json(); // Capture the error message from the response
     return res.status(400).json({
       error: `ImgBB API error: ${
-        errorData.error ? errorData.error.message : "Unknown error"
+        errorData.error ? errorData.error : "Unknown error"
       } CODE ${response.status}`,
     });
     // return res.status(500).json({
@@ -759,6 +759,136 @@ app.delete("/collections/:id", async (req, res) => {
   try {
     await prisma.collection.delete({ where: { id } });
     res.json({ message: "collection entry deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
+/* ORDER CONTROLLER */
+
+app.post("/orders", async (req, res) => {
+  const { orderItems, startDate, endDate, quantity, status } = req.body;
+  try {
+    const newOrder = await prisma.order.create({
+      data: {
+        startDate,
+        endDate,
+        quantity,
+        status,
+        orderItems: {
+          create: orderItems.map(
+            (item: { businessId: number; price: number }) => ({
+              businessId: item.businessId,
+              price: item.price,
+            })
+          ),
+        },
+      },
+      include: {
+        orderItems: true,
+      },
+    });
+    res.status(201).json({ data: newOrder });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
+app.get("/orders", async (req, res) => {
+  try {
+    const orders = await prisma.order.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+    res.json({ data: orders });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
+app.get("/orders/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: true,
+      },
+    });
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    res.json({ data: order });
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+});
+
+app.patch("/orders/:id", async (req, res) => {
+  const { id } = req.params;
+  const { startDate, endDate, status, quantity, orderItems } = req.body;
+
+  try {
+    const updateData: any = {};
+
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate) updateData.endDate = new Date(endDate);
+    if (status) updateData.status = status;
+    if (quantity !== undefined) updateData.quantity = quantity;
+
+    if (orderItems) {
+      for (const orderItem of orderItems) {
+        const { businessId, price } = orderItem;
+
+        const existingOrderItem = await prisma.order_Item.findFirst({
+          where: {
+            orderId: id,
+            businessId: businessId,
+          },
+        });
+
+        if (existingOrderItem) {
+          await prisma.order_Item.update({
+            where: { id: existingOrderItem.id },
+            data: {
+              price: price,
+            },
+          });
+        } else {
+          await prisma.order_Item.create({
+            data: {
+              orderId: id,
+              businessId: businessId,
+              price: price,
+            },
+          });
+        }
+      }
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data: updateData,
+      include: {
+        orderItems: true,
+      },
+    });
+
+    res.json({ data: updatedOrder });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error });
+  }
+});
+
+app.delete("/orders/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await prisma.order.delete({
+      where: { id },
+    });
+    res.json({ message: "Order deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: error });
   }

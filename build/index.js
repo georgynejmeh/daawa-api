@@ -65,7 +65,7 @@ app.post("/test/imgbb", upload.single("image"), (req, res) => __awaiter(void 0, 
         }
         const errorData = yield response.json(); // Capture the error message from the response
         return res.status(400).json({
-            error: `ImgBB API error: ${errorData.error ? errorData.error.message : "Unknown error"} CODE ${response.status}`,
+            error: `ImgBB API error: ${errorData.error ? errorData.error : "Unknown error"} CODE ${response.status}`,
         });
         // return res.status(500).json({
         //   error: `imageblob: ${imageBlob} CODE ${response.status} ERROR `,
@@ -736,6 +736,131 @@ app.delete("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, f
     try {
         yield prisma.collection.delete({ where: { id } });
         res.json({ message: "collection entry deleted successfully" });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+/* ORDER CONTROLLER */
+app.post("/orders", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { orderItems, startDate, endDate, quantity, status } = req.body;
+    try {
+        const newOrder = yield prisma.order.create({
+            data: {
+                startDate,
+                endDate,
+                quantity,
+                status,
+                orderItems: {
+                    create: orderItems.map((item) => ({
+                        businessId: item.businessId,
+                        price: item.price,
+                    })),
+                },
+            },
+            include: {
+                orderItems: true,
+            },
+        });
+        res.status(201).json({ data: newOrder });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.get("/orders", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const orders = yield prisma.order.findMany({
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+        res.json({ data: orders });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.get("/orders/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        const order = yield prisma.order.findUnique({
+            where: { id },
+            include: {
+                orderItems: true,
+            },
+        });
+        if (!order) {
+            return res.status(404).json({ error: "Order not found" });
+        }
+        res.json({ data: order });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.patch("/orders/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    const { startDate, endDate, status, quantity, orderItems } = req.body;
+    try {
+        const updateData = {};
+        if (startDate)
+            updateData.startDate = new Date(startDate);
+        if (endDate)
+            updateData.endDate = new Date(endDate);
+        if (status)
+            updateData.status = status;
+        if (quantity !== undefined)
+            updateData.quantity = quantity;
+        if (orderItems) {
+            for (const orderItem of orderItems) {
+                const { businessId, price } = orderItem;
+                const existingOrderItem = yield prisma.order_Item.findFirst({
+                    where: {
+                        orderId: id,
+                        businessId: businessId,
+                    },
+                });
+                if (existingOrderItem) {
+                    yield prisma.order_Item.update({
+                        where: { id: existingOrderItem.id },
+                        data: {
+                            price: price,
+                        },
+                    });
+                }
+                else {
+                    yield prisma.order_Item.create({
+                        data: {
+                            orderId: id,
+                            businessId: businessId,
+                            price: price,
+                        },
+                    });
+                }
+            }
+        }
+        const updatedOrder = yield prisma.order.update({
+            where: { id },
+            data: updateData,
+            include: {
+                orderItems: true,
+            },
+        });
+        res.json({ data: updatedOrder });
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error });
+    }
+}));
+app.delete("/orders/:id", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    try {
+        yield prisma.order.delete({
+            where: { id },
+        });
+        res.json({ message: "Order deleted successfully" });
     }
     catch (error) {
         res.status(500).json({ error: error });

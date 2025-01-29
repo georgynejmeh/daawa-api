@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import multer from "multer";
 import fs from "fs";
@@ -33,6 +33,120 @@ const prisma = new PrismaClient();
 app.use(express.json());
 
 app.use(express.static("public"));
+
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
+
+app.post("/register", async (req, res) => {
+  if (!JWT_SECRET_KEY) {
+    return res.status(500).json({ message: "JWT Auth Error" });
+  }
+
+  const { name, email, phone, password, role } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ message: "Missing name" });
+  } else if (!email) {
+    return res.status(400).json({ message: "Missing name" });
+  } else if (!phone || !password || !role) {
+    return res.status(400).json({ message: "Missing phone, password or role" });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    return res.status(400).json({ message: "Email already in use" });
+  }
+
+  const newUser = await prisma.user.create({
+    data: {
+      name,
+      email,
+      phone,
+      password: hashedPassword,
+      role,
+    },
+  });
+
+  // Create a JWT token
+  const token = jwt.sign({ userId: newUser.id }, JWT_SECRET_KEY, {
+    expiresIn: "30d",
+  });
+
+  res.status(201).json({
+    message: "User registered successfully",
+    token,
+  });
+});
+
+app.post("/login", async (req, res) => {
+  if (!JWT_SECRET_KEY) {
+    return res.status(500).json({ message: "JWT Auth Error" });
+  }
+
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: "Missing email or password" });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    return res.status(401).json({ message: "Invalid email" });
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+
+  if (!isPasswordValid) {
+    return res.status(401).json({ message: "Invalid password" });
+  }
+
+  // Create a JWT token
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET_KEY, {
+    expiresIn: "30d",
+  });
+
+  res.json({
+    message: "Login successful",
+    token,
+  });
+});
+
+// JWT authentication middleware
+const authenticateToken = (req: any, res: any, next: any) => {
+  if (!JWT_SECRET_KEY) {
+    return res.status(500).json({ message: "JWT Auth Error" });
+  }
+
+  const token =
+    req.headers["authorization"] && req.headers["authorization"].split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ message: "Authorization token is required" });
+  }
+
+  jwt.verify(token, JWT_SECRET_KEY, (err: any, user: any) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+    req.user = user as User;
+    next();
+  });
+};
+
+// // Apply authentication middleware to a specific protected route
+// app.get("/protected", authenticateToken, (req, res) => {
+
+// Apply authentication middleware globally
+app.use(authenticateToken);
 
 /* TESTS */
 
@@ -767,8 +881,11 @@ app.delete("/collections/:id", async (req, res) => {
 /* ORDER CONTROLLER */
 
 app.post("/orders", async (req, res) => {
-  const { orderItems, startDate, endDate, quantity, status } = req.body;
+  const { orderItems, startDate, endDate, quantity } = req.body;
+  const status = "PENDING";
   try {
+    // if orderItems.dishes
+    // else []
     const newOrder = await prisma.order.create({
       data: {
         startDate,
@@ -777,9 +894,14 @@ app.post("/orders", async (req, res) => {
         status,
         orderItems: {
           create: orderItems.map(
-            (item: { businessId: number; price: number }) => ({
+            (item: {
+              businessId: number;
+              price: number;
+              dishIds: string[];
+            }) => ({
               businessId: item.businessId,
               price: item.price,
+              dishIds: item.dishIds || [],
             })
           ),
         },

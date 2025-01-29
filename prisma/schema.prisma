@@ -138,6 +138,7 @@ model Order_Item {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   orderId    String   @db.ObjectId
   businessId String   @db.ObjectId
+  dishIds    String[]
   price      Float
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)

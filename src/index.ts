@@ -122,6 +122,7 @@ app.post("/login", async (req, res) => {
 
 // JWT authentication middleware
 const authenticateToken = (req: any, res: any, next: any) => {
+  console.log("jwt token check");
   if (!JWT_SECRET_KEY) {
     return res.status(500).json({ message: "JWT Auth Error" });
   }

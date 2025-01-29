@@ -40,6 +40,95 @@ app.listen(port, () => {
 const prisma = new client_1.PrismaClient();
 app.use(express_1.default.json());
 app.use(express_1.default.static("public"));
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
+app.post("/register", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!JWT_SECRET_KEY) {
+        return res.status(500).json({ message: "JWT Auth Error" });
+    }
+    const { name, email, phone, password, role } = req.body;
+    if (!name) {
+        return res.status(400).json({ message: "Missing name" });
+    }
+    else if (!email) {
+        return res.status(400).json({ message: "Missing name" });
+    }
+    else if (!phone || !password || !role) {
+        return res.status(400).json({ message: "Missing phone, password or role" });
+    }
+    const hashedPassword = yield bcryptjs_1.default.hash(password, 10);
+    const existingUser = yield prisma.user.findUnique({
+        where: { email },
+    });
+    if (existingUser) {
+        return res.status(400).json({ message: "Email already in use" });
+    }
+    const newUser = yield prisma.user.create({
+        data: {
+            name,
+            email,
+            phone,
+            password: hashedPassword,
+            role,
+        },
+    });
+    // Create a JWT token
+    const token = jsonwebtoken_1.default.sign({ userId: newUser.id }, JWT_SECRET_KEY, {
+        expiresIn: "30d",
+    });
+    res.status(201).json({
+        message: "User registered successfully",
+        token,
+    });
+}));
+app.post("/login", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!JWT_SECRET_KEY) {
+        return res.status(500).json({ message: "JWT Auth Error" });
+    }
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({ message: "Missing email or password" });
+    }
+    const user = yield prisma.user.findUnique({
+        where: { email },
+    });
+    if (!user) {
+        return res.status(401).json({ message: "Invalid email" });
+    }
+    const isPasswordValid = yield bcryptjs_1.default.compare(password, user.password);
+    if (!isPasswordValid) {
+        return res.status(401).json({ message: "Invalid password" });
+    }
+    // Create a JWT token
+    const token = jsonwebtoken_1.default.sign({ userId: user.id }, JWT_SECRET_KEY, {
+        expiresIn: "30d",
+    });
+    res.json({
+        message: "Login successful",
+        token,
+    });
+}));
+// JWT authentication middleware
+const authenticateToken = (req, res, next) => {
+    if (!JWT_SECRET_KEY) {
+        return res.status(500).json({ message: "JWT Auth Error" });
+    }
+    const token = req.headers["authorization"] && req.headers["authorization"].split(" ")[1];
+    if (!token) {
+        return res.status(401).json({ message: "Authorization token is required" });
+    }
+    jsonwebtoken_1.default.verify(token, JWT_SECRET_KEY, (err, user) => {
+        if (err) {
+            return res.status(403).json({ message: "Invalid or expired token" });
+        }
+        req.user = user;
+        next();
+    });
+};
+// // Apply authentication middleware to a specific protected route
+// app.get("/protected", authenticateToken, (req, res) => {
+// Apply authentication middleware globally
+app.use(authenticateToken);
 /* TESTS */
 app.post("/test/imgbb", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -743,8 +832,11 @@ app.delete("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, f
 }));
 /* ORDER CONTROLLER */
 app.post("/orders", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    const { orderItems, startDate, endDate, quantity, status } = req.body;
+    const { orderItems, startDate, endDate, quantity } = req.body;
+    const status = "PENDING";
     try {
+        // if orderItems.dishes
+        // else []
         const newOrder = yield prisma.order.create({
             data: {
                 startDate,
@@ -755,6 +847,7 @@ app.post("/orders", (req, res) => __awaiter(void 0, void 0, void 0, function* ()
                     create: orderItems.map((item) => ({
                         businessId: item.businessId,
                         price: item.price,
+                        dishIds: item.dishIds || [],
                     })),
                 },
             },

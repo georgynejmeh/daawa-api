@@ -796,15 +796,34 @@ app.get("/collections/:id", (req, res) => __awaiter(void 0, void 0, void 0, func
         res.status(500).json({ error: error });
     }
 }));
-app.post("/collections", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+app.post("/collections", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     const { name, businessIds } = req.body;
+    const image = req.file;
+    if (!image) {
+        return res.status(400).json({ error: "No image file uploaded" });
+    }
     try {
         if (!Array.isArray(businessIds)) {
             return res.status(400).json({ error: "businessIds must be an array" });
         }
+        const formData = new FormData();
+        const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+        formData.append("key", process.env.IMGBB_API_KEY);
+        formData.append("image", imageBlob);
+        formData.append("name", `${Date.now()}`);
+        const imgBBResponse = yield fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+            method: "POST",
+            body: formData,
+        });
+        if (!imgBBResponse.ok) {
+            throw new Error("Failed to upload image");
+        }
+        const jsonResponse = yield imgBBResponse.json();
+        const imageUrl = jsonResponse.data.url;
         const newCollection = yield prisma.collection.create({
             data: {
                 name,
+                image: imageUrl,
                 collectionBusinesses: {
                     createMany: {
                         data: businessIds.map((businessId) => ({
@@ -815,6 +834,37 @@ app.post("/collections", (req, res) => __awaiter(void 0, void 0, void 0, functio
             },
         });
         res.status(201).json({ data: newCollection });
+    }
+    catch (error) {
+        res.status(500).json({ error: error });
+    }
+}));
+app.patch("/collections/:id", upload.single("image"), (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    const { id } = req.params;
+    const image = req.file;
+    if (!image) {
+        return res.status(400).json({ error: "No image file uploaded" });
+    }
+    try {
+        const formData = new FormData();
+        const imageBlob = new Blob([image.buffer], { type: image.mimetype });
+        formData.append("key", process.env.IMGBB_API_KEY);
+        formData.append("image", imageBlob);
+        formData.append("name", `${Date.now()}`);
+        const imgBBResponse = yield fetch(`${process.env.IMGBB_UPLOAD_URL}`, {
+            method: "POST",
+            body: formData,
+        });
+        if (!imgBBResponse.ok) {
+            throw new Error("Failed to upload image");
+        }
+        const jsonResponse = yield imgBBResponse.json();
+        const imageUrl = jsonResponse.data.url;
+        const collection = yield prisma.collection.update({
+            where: { id },
+            data: { image: imageUrl },
+        });
+        res.json({ data: collection });
     }
     catch (error) {
         res.status(500).json({ error: error });

@@ -112,6 +112,7 @@ model Dish {
 model Collection {
   id                   String                  @id @default(auto()) @map("_id") @db.ObjectId
   name                 String
+  image                String
   collectionBusinesses Collection_Businesses[]
 }
 

@@ -59,8 +59,15 @@ app.post("/register", async (req, res) => {
     where: { email },
   });
 
+  const existingPhone = await prisma.user.findUnique({
+    where: { phone },
+  });
+
   if (existingUser) {
     return res.status(400).json({ message: "Email already in use" });
+  }
+  if (existingPhone) {
+    return res.status(400).json({ message: "Phone number already in use" });
   }
 
   const newUser = await prisma.user.create({
@@ -81,6 +88,8 @@ app.post("/register", async (req, res) => {
   res.status(201).json({
     message: "User registered successfully",
     token,
+    userId: newUser.id,
+    role: newUser.role,
   });
 });
 
@@ -117,6 +126,8 @@ app.post("/login", async (req, res) => {
   res.json({
     message: "Login successful",
     token,
+    userId: user.id,
+    role: user.role,
   });
 });
 

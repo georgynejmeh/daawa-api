@@ -60,8 +60,14 @@ app.post("/register", (req, res) => __awaiter(void 0, void 0, void 0, function* 
     const existingUser = yield prisma.user.findUnique({
         where: { email },
     });
+    const existingPhone = yield prisma.user.findUnique({
+        where: { phone },
+    });
     if (existingUser) {
         return res.status(400).json({ message: "Email already in use" });
+    }
+    if (existingPhone) {
+        return res.status(400).json({ message: "Phone number already in use" });
     }
     const newUser = yield prisma.user.create({
         data: {
@@ -79,6 +85,8 @@ app.post("/register", (req, res) => __awaiter(void 0, void 0, void 0, function* 
     res.status(201).json({
         message: "User registered successfully",
         token,
+        userId: newUser.id,
+        role: newUser.role,
     });
 }));
 app.post("/login", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
@@ -106,6 +114,8 @@ app.post("/login", (req, res) => __awaiter(void 0, void 0, void 0, function* () 
     res.json({
         message: "Login successful",
         token,
+        userId: user.id,
+        role: user.role,
     });
 }));
 // JWT authentication middleware
